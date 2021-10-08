@@ -1,3 +1,4 @@
+import os
 import sys
 import pandas as pd
 
@@ -20,7 +21,7 @@ class WellPlate96:
 
     def load_raw_data(self, raw_in):
         # read in the file skipping header including column names and footer rows
-        some_df = pd.read_csv(raw_in, skiprows=3, skipfooter=2, header=None, sep='\t', engine='python')
+        some_df = pd.read_csv(raw_in, skiprows=3, skipfooter=2, header=None, sep='\t', engine='python', encoding_errors='ignore')
 
         # file format creates two empty columns at the end, drop these
         some_df.dropna(axis=1, how="all", inplace=True)
@@ -96,20 +97,30 @@ if __name__ == '__main__':
         sys.exit(1)
     raw_input = sys.argv[1]
     coordinates = sys.argv[2]
-    print("Processing raw input: " + raw_input + " coordinates: " + coordinates)
 
-    # Initialize 96 well plate with columns
-    my_df = WellPlate96()
+    if os.path.isdir(raw_input):
+        print("Will process files in directory: " + raw_input + " coordinates: " + coordinates)
+        for filename in os.listdir(raw_input):
+            if filename.endswith(".txt"):
+                filepath = os.path.join(raw_input, filename)
+                print(filepath)
+                my_df = WellPlate96()
+                my_df.load_raw_data(filepath)
+    else:
+        print("Processing raw input: " + raw_input + " coordinates: " + coordinates)
 
-    # Load raw data in dataframe
-    my_df.load_raw_data(raw_input)
+        # Initialize 96 well plate with columns
+        my_df = WellPlate96()
 
-    # Print number of time points
-    print("Read " + str(my_df.get_exp_count()) + " time points.")
+        # Load raw data in dataframe
+        my_df.load_raw_data(raw_input)
 
-    # create coordinates object
-    my_co = CoordList(coordinates)
-    print("Fixed list of coordinates: {0}".format(str(my_co.fixed_list)))
+        # Print number of time points
+        print("Read " + str(my_df.get_exp_count()) + " time points.")
 
-    # print output
-    my_df.get_columns(my_co.fixed_list)
+        # create coordinates object
+        my_co = CoordList(coordinates)
+        print("Fixed list of coordinates: {0}".format(str(my_co.fixed_list)))
+
+        # print output
+        my_df.get_columns(my_co.fixed_list)
