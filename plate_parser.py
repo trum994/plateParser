@@ -15,29 +15,28 @@ class WellPlate96:
                 column_name = char + str(i)
                 rfu_columns.append(column_name)
         self.this_df = pd.DataFrame(columns=rfu_columns)
+        self.labels = self.this_df.iloc[:, 0]
 
     def get_exp_count(self):
         return self.this_df.shape[0]
 
-    def load_raw_data(self, raw_in):
+    def load_raw_data(self, raw_in, this_is_folder):
         # read in the file skipping header including column names and footer rows
         some_df = pd.read_csv(raw_in, skiprows=3, skipfooter=2, header=None, sep='\t', engine='python',
                               encoding_errors='ignore')
 
         # file format creates two empty columns at the end, drop these
         some_df = some_df.iloc[:, :-2]
-        print(some_df)
 
-        # get the time intervals
-        just_times = some_df.iloc[:, 0]
-        print(just_times[0])
-        if just_times.isnull().all():
-            print("all null")
+        # If input is coming from folder time is not in file, so parse from filename and inject
+        if this_is_folder:
+            time_from_filename = os.path.splitext(os.path.basename(raw_in))[0].replace("_", ".")
+            self.labels = self.labels.append(pd.Series([time_from_filename]), ignore_index=True)
         else:
-            print("some not null")
-
-        just_times.dropna(axis=0, how="any", inplace=True)
-        just_times.name = "Time"
+            # get the time intervals
+            just_times = some_df.iloc[:, 0]
+            just_times.dropna(axis=0, how="any", inplace=True)
+            self.labels = self.labels.append(pd.Series(just_times))
 
         # drop first two columns and we now only have pure data, ie. relative fluorescence units RFU
         some_df = some_df.iloc[:, 2:]
@@ -48,8 +47,6 @@ class WellPlate96:
             chunk = some_df.iloc[i:i+8, :]
             my_series = pd.Series(chunk.to_numpy(copy=True).flatten(), index=self.this_df.columns)
             self.this_df = self.this_df.append(my_series, ignore_index=True)
-
-        # self.this_df.index = just_times
 
     def get_columns(self, my_coord_list):
         print(self.this_df[my_coord_list].to_csv(float_format='%.3f'))
@@ -101,48 +98,39 @@ class CoordList:
 if __name__ == '__main__':
 
     if len(sys.argv) != 3:
-        print("Required both arguments: raw text input and comma separated coordinates")
+        print("Required both arguments: input file(s) and comma separated coordinates")
         sys.exit(1)
-    # TODO change var name raw_input to input_list
-    raw_input = sys.argv[1]
+    input_list = sys.argv[1]
     coordinates = sys.argv[2]
 
     file_list = []
+    print("Will process file(s): " + input_list + " with coordinates: " + coordinates)
 
-    if os.path.isdir(raw_input):
-        print("Will process files in directory: " + raw_input + " coordinates: " + coordinates)
-        for filename in os.listdir(raw_input):
+    is_folder = False
+    if os.path.isdir(input_list):
+        is_folder = True
+        for filename in os.listdir(input_list):
             if filename.endswith(".txt"):
-                filepath = os.path.join(raw_input, filename)
+                filepath = os.path.join(input_list, filename)
                 file_list.append(filepath)
-                # time_from_filename = os.path.splitext(filename)[0].replace("_", ".")
-                # print(time_from_filename)
     else:
-        file_list.append(raw_input)
+        file_list.append(input_list)
     print(sorted(file_list))
 
-    for this_file in file_list:
-        my_df = WellPlate96()
-        my_df.load_raw_data(this_file)
-        print("Read " + str(my_df.get_exp_count()) + " time points.")
-        my_co = CoordList(coordinates)
-        print("Fixed list of coordinates: {0}".format(str(my_co.fixed_list)))
-        my_df.get_columns(my_co.fixed_list)
+    # Initialize 96 well plate with columns
+    my_df = WellPlate96()
 
-# print("Processing raw input: " + raw_input + " coordinates: " + coordinates)
-#
-# # Initialize 96 well plate with columns
-# my_df = WellPlate96()
-#
-# # Load raw data in dataframe
-# my_df.load_raw_data(raw_input)
-#
-# # Print number of time points
-# print("Read " + str(my_df.get_exp_count()) + " time points.")
-#
-# # create coordinates object
-# my_co = CoordList(coordinates)
-# print("Fixed list of coordinates: {0}".format(str(my_co.fixed_list)))
-#
-# # print output
-# my_df.get_columns(my_co.fixed_list)
+    # Create coordinates object
+    my_co = CoordList(coordinates)
+    print("Fixed list of coordinates: {0}".format(str(my_co.fixed_list)))
+
+    for this_file in sorted(file_list):
+        # Load raw data in dataframe
+        my_df.load_raw_data(this_file, is_folder)
+
+    # Print number of time points
+    print("Read total of " + str(my_df.get_exp_count()) + " time points.")
+
+    my_df.labels.name = "Time"
+    my_df.this_df.index = my_df.labels
+    my_df.get_columns(my_co.fixed_list)
