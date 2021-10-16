@@ -102,6 +102,9 @@ if __name__ == '__main__':
         sys.exit(1)
     input_list = sys.argv[1]
     coordinates = sys.argv[2]
+    bg_wells = "B-D1"
+    d1_wells = "B-D2"
+    d2_wells = "E-G2"
 
     file_list = []
     print("Will process file(s): " + input_list + " with coordinates: " + coordinates)
@@ -124,6 +127,14 @@ if __name__ == '__main__':
     my_co = CoordList(coordinates)
     print("Fixed list of coordinates: {0}".format(str(my_co.fixed_list)))
 
+    # Create coordinates for background, drug1, drug2 wells
+    bg_co = CoordList(bg_wells)
+    d1_co = CoordList(d1_wells)
+    d2_co = CoordList(d2_wells)
+    print("Fixed list of bg coordinates: {0}".format(str(bg_co.fixed_list)))
+    print("Fixed list of d1 coordinates: {0}".format(str(d1_co.fixed_list)))
+    print("Fixed list of d2 coordinates: {0}".format(str(d2_co.fixed_list)))
+
     for this_file in sorted(file_list):
         # Load raw data in dataframe
         my_df.load_raw_data(this_file, is_folder)
@@ -131,6 +142,21 @@ if __name__ == '__main__':
     # Print number of time points
     print("Read total of " + str(my_df.get_exp_count()) + " time points.")
 
+    # Add times as an index for the data frame
     my_df.labels.name = "Time"
     my_df.this_df.index = my_df.labels
     my_df.get_columns(my_co.fixed_list)
+
+    # Calculate average background and add as new column at the end
+    my_df.this_df['BG'] = my_df.this_df[bg_co.fixed_list].mean(axis=1)
+    print(my_df.this_df)
+
+    # Subtract background from all values
+    my_df.this_df = my_df.this_df.sub(my_df.this_df['BG'], axis=0)
+    print(my_df.this_df)
+
+    # Calculate drug1 and drug2 averages and as new column at the end
+    my_df.this_df['DR1'] = my_df.this_df[d1_co.fixed_list].mean(axis=1)
+    my_df.this_df['DR2'] = my_df.this_df[d2_co.fixed_list].mean(axis=1)
+    print(my_df.this_df)
+    print(my_df.this_df[['B2', 'C2', 'D2']])
