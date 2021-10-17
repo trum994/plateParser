@@ -127,60 +127,48 @@ def run_cytotox(my_df):
     d1e_co = CoordList(d1e_wells)
     d2e_co = CoordList(d2e_wells)
 
-    print("Fixed list of bgr coordinates: {0}".format(str(bgr_co.fixed_list)))
-    print("Fixed list of d1c coordinates: {0}".format(str(d1c_co.fixed_list)))
-    print("Fixed list of d2c coordinates: {0}".format(str(d2c_co.fixed_list)))
-    print("Fixed list of d1e coordinates: {0}".format(str(d1e_co.fixed_list)))
-    print("Fixed list of d2e coordinates: {0}".format(str(d2e_co.fixed_list)))
+    # print("Fixed list of bgr coordinates: {0}".format(str(bgr_co.fixed_list)))
+    # print("Fixed list of d1c coordinates: {0}".format(str(d1c_co.fixed_list)))
+    # print("Fixed list of d2c coordinates: {0}".format(str(d2c_co.fixed_list)))
+    # print("Fixed list of d1e coordinates: {0}".format(str(d1e_co.fixed_list)))
+    # print("Fixed list of d2e coordinates: {0}".format(str(d2e_co.fixed_list)))
 
     my_df.labels.name = "Cell-Drug"
     my_df.this_df.index = my_df.labels
 
     # Calculate average background and add as new column at the end
     my_df.this_df['BG'] = my_df.this_df[bgr_co.fixed_list].mean(axis=1)
-    print(my_df.this_df)
 
     # Subtract background from all values
     my_df.this_df = my_df.this_df.sub(my_df.this_df['BG'], axis=0)
-    print(my_df.this_df)
 
     # Calculate drug1 and drug2 control values and add as new column at the end
     my_df.this_df['DR1C'] = my_df.this_df[d1c_co.fixed_list].mean(axis=1)
     my_df.this_df['DR2C'] = my_df.this_df[d2c_co.fixed_list].mean(axis=1)
-    print(my_df.this_df)
-    # print(my_df.this_df[['B2', 'C2', 'D2']])
 
     # Calculate percentage by dividing everything by control values and multiplying by 100
     my_df.this_df[d1e_co.fixed_list] = my_df.this_df[d1e_co.fixed_list].div(my_df.this_df['DR1C'], axis=0).multiply(100)
     my_df.this_df[d2e_co.fixed_list] = my_df.this_df[d2e_co.fixed_list].div(my_df.this_df['DR2C'], axis=0).multiply(100)
 
-    # print(my_df.this_df[d1e_co.fixed_list])
-    # print(my_df.this_df[d2e_co.fixed_list])
-
-    # print(my_df.this_df.loc[['Cell1.D1.D2']])
-    # print(type(my_df.this_df.loc[['Cell1.D1.D2']]))
-
-    # print(my_df.this_df.loc['Cell1.D1.D2', d1e_co.fixed_list])
-    # print(type(my_df.this_df.loc['Cell1.D1.D2', d1e_co.fixed_list]))
-
-    # print(my_df.this_df.loc['Cell1.D1.D2', d1e_co.fixed_list].to_frame().transpose().values.reshape(3, 10))
-    # print(type(my_df.this_df.loc['Cell1.D1.D2', d1e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)))
-
-    # my_array = my_df.this_df.loc['Cell1.D1.D2', d1e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)
-    # new_df = pd.DataFrame(my_array, columns=range(2, 12))
-    # new_df.index = list('BCD')
-    # print(new_df)
-
+    final_df = pd.DataFrame()
+    # Each row is an input file. Now converting each file back into a table/dataframe
     for index, row in my_df.this_df.iterrows():
-        print(index)
         drug1_array = row[d1e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)
         drug1_df = pd.DataFrame(drug1_array, columns=range(2, 12))
         drug1_df.index = list('BCD')
-        print(drug1_df)
+        drug1_df['drug'] = "drug1"
+        drug1_df['filename'] = index
+        final_df = final_df.append(drug1_df)
+
         drug2_array = row[d2e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)
-        drug2_df = pd.DataFrame(drug1_array, columns=range(2, 12))
+        drug2_df = pd.DataFrame(drug2_array, columns=range(2, 12))
         drug2_df.index = list('EFG')
-        print(drug2_df)
+        drug2_df['drug'] = "drug2"
+        drug2_df['filename'] = index
+        final_df = final_df.append(drug2_df)
+
+    print(final_df)
+    final_df.to_excel("output.xlsx")
 
 
 def get_file_list(my_input_list):
