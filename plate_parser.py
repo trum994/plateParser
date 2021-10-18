@@ -95,42 +95,116 @@ class CoordList:
         return dashed_list
 
 
-if __name__ == '__main__':
-
-    if len(sys.argv) != 3:
-        print("Required both arguments: input file(s) and comma separated coordinates")
-        sys.exit(1)
-    input_list = sys.argv[1]
-    coordinates = sys.argv[2]
-
-    file_list = []
-    print("Will process file(s): " + input_list + " with coordinates: " + coordinates)
-
-    is_folder = False
-    if os.path.isdir(input_list):
-        is_folder = True
-        for filename in os.listdir(input_list):
-            if filename.endswith(".txt"):
-                filepath = os.path.join(input_list, filename)
-                file_list.append(filepath)
-    else:
-        file_list.append(input_list)
-    print(sorted(file_list))
-
-    # Initialize 96 well plate with columns
-    my_df = WellPlate96()
-
+def run_parser(my_df, my_coord):
+    print("Running parser")
+    print("Will process with coordinates: " + my_coord)
     # Create coordinates object
-    my_co = CoordList(coordinates)
+    my_co = CoordList(my_coord)
     print("Fixed list of coordinates: {0}".format(str(my_co.fixed_list)))
-
-    for this_file in sorted(file_list):
-        # Load raw data in dataframe
-        my_df.load_raw_data(this_file, is_folder)
 
     # Print number of time points
     print("Read total of " + str(my_df.get_exp_count()) + " time points.")
 
+    # Add times as an index for the data frame
     my_df.labels.name = "Time"
     my_df.this_df.index = my_df.labels
     my_df.get_columns(my_co.fixed_list)
+
+
+def run_cytotox(my_df):
+    print("Running cytotox")
+
+    bgr_wells = "B-D1"
+    d1c_wells = "B-D2"
+    d2c_wells = "E-G2"
+    d1e_wells = "B2-11,C2-11,D2-11"
+    d2e_wells = "E2-11,F2-11,G2-11"
+
+    # Create coordinates for background, drug1, drug2 wells
+    bgr_co = CoordList(bgr_wells)
+    d1c_co = CoordList(d1c_wells)
+    d2c_co = CoordList(d2c_wells)
+    d1e_co = CoordList(d1e_wells)
+    d2e_co = CoordList(d2e_wells)
+
+    # print("Fixed list of bgr coordinates: {0}".format(str(bgr_co.fixed_list)))
+    # print("Fixed list of d1c coordinates: {0}".format(str(d1c_co.fixed_list)))
+    # print("Fixed list of d2c coordinates: {0}".format(str(d2c_co.fixed_list)))
+    # print("Fixed list of d1e coordinates: {0}".format(str(d1e_co.fixed_list)))
+    # print("Fixed list of d2e coordinates: {0}".format(str(d2e_co.fixed_list)))
+
+    my_df.labels.name = "Cell-Drug"
+    my_df.this_df.index = my_df.labels
+
+    # Calculate average background and add as new column at the end
+    my_df.this_df['BG'] = my_df.this_df[bgr_co.fixed_list].mean(axis=1)
+
+    # Subtract background from all values
+    my_df.this_df = my_df.this_df.sub(my_df.this_df['BG'], axis=0)
+
+    # Calculate drug1 and drug2 control values and add as new column at the end
+    my_df.this_df['DR1C'] = my_df.this_df[d1c_co.fixed_list].mean(axis=1)
+    my_df.this_df['DR2C'] = my_df.this_df[d2c_co.fixed_list].mean(axis=1)
+
+    # Calculate percentage by dividing everything by control values and multiplying by 100
+    my_df.this_df[d1e_co.fixed_list] = my_df.this_df[d1e_co.fixed_list].div(my_df.this_df['DR1C'], axis=0).multiply(100)
+    my_df.this_df[d2e_co.fixed_list] = my_df.this_df[d2e_co.fixed_list].div(my_df.this_df['DR2C'], axis=0).multiply(100)
+
+    final_df = pd.DataFrame()
+    # Each row is an input file. Now converting each file back into a table/dataframe
+    for index, row in my_df.this_df.iterrows():
+        drug1_array = row[d1e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)
+        drug1_df = pd.DataFrame(drug1_array, columns=range(2, 12))
+        drug1_df.index = list('BCD')
+        drug1_df['drug'] = "drug1"
+        drug1_df['filename'] = index
+        final_df = final_df.append(drug1_df)
+
+        drug2_array = row[d2e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)
+        drug2_df = pd.DataFrame(drug2_array, columns=range(2, 12))
+        drug2_df.index = list('EFG')
+        drug2_df['drug'] = "drug2"
+        drug2_df['filename'] = index
+        final_df = final_df.append(drug2_df)
+
+    print(final_df)
+    final_df.to_excel("output.xlsx")
+
+
+def get_file_list(my_input_list):
+    this_file_list = []
+    if os.path.isdir(my_input_list):
+        for filename in os.listdir(my_input_list):
+            if filename.endswith(".txt"):
+                filepath = os.path.join(my_input_list, filename)
+                this_file_list.append(filepath)
+    else:
+        this_file_list.append(input_list)
+    print(sorted(this_file_list))
+    return sorted(this_file_list)
+
+
+if __name__ == '__main__':
+
+    if len(sys.argv) != 3:
+        print("Required both arguments: input file(s) and comma separated coordinates or just cytotox")
+        sys.exit(1)
+    input_list = sys.argv[1]
+
+    file_list = get_file_list(input_list)
+    print("Will process file(s): " + input_list)
+
+    # Initialize 96 well plate with columns
+    the_df = WellPlate96()
+
+    for this_file in sorted(file_list):
+        # Load raw data in dataframe
+        the_df.load_raw_data(this_file, os.path.isdir(input_list))
+
+    mode = ""
+    if sys.argv[2] == "cytotox":
+        mode = "cytotox"
+        run_cytotox(the_df)
+    else:
+        mode = "parser"
+        run_parser(the_df, my_coord=sys.argv[2])
