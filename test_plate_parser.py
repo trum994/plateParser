@@ -18,8 +18,8 @@ def test_col_names(my_fix_plate):
 
 def test_load_raw_data(my_fix_plate):
     raw_in = "rawInput.txt"
-    my_fix_plate.load_raw_data(raw_in)
-    assert my_fix_plate.this_df.loc['0:00', 'A1'] == 40.144
+    my_fix_plate.load_raw_data(raw_in, False)
+    assert my_fix_plate.this_df.iloc[0, 0] == 40.144
     assert my_fix_plate.this_df.iloc[-1, -1] == 37.01
 
 
