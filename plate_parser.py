@@ -150,25 +150,25 @@ def run_cytotox(my_df):
     my_df.this_df[d1e_co.fixed_list] = my_df.this_df[d1e_co.fixed_list].div(my_df.this_df['DR1C'], axis=0).multiply(100)
     my_df.this_df[d2e_co.fixed_list] = my_df.this_df[d2e_co.fixed_list].div(my_df.this_df['DR2C'], axis=0).multiply(100)
 
-    final_df = pd.DataFrame()
+    my_final_df = pd.DataFrame()
     # Each row is an input file. Now converting each file back into a table/dataframe
     for index, row in my_df.this_df.iterrows():
         drug1_array = row[d1e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)
         drug1_df = pd.DataFrame(drug1_array, columns=range(2, 12))
         drug1_df.index = list('BCD')
-        drug1_df['drug'] = "drug1"
+        drug1_df['plate_rows'] = "BCD"
         drug1_df['filename'] = index
-        final_df = final_df.append(drug1_df)
+        my_final_df = my_final_df.append(drug1_df)
 
         drug2_array = row[d2e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)
         drug2_df = pd.DataFrame(drug2_array, columns=range(2, 12))
         drug2_df.index = list('EFG')
-        drug2_df['drug'] = "drug2"
+        drug2_df['plate_rows'] = "EFG"
         drug2_df['filename'] = index
-        final_df = final_df.append(drug2_df)
+        my_final_df = my_final_df.append(drug2_df)
 
-    print(final_df)
-    final_df.to_excel("output.xlsx")
+    print(my_final_df)
+    return my_final_df
 
 
 def get_file_list(my_input_list):
@@ -182,6 +182,17 @@ def get_file_list(my_input_list):
         this_file_list.append(input_list)
     print(sorted(this_file_list))
     return sorted(this_file_list)
+
+
+def get_output_name(my_input_list):
+    out_file_name = os.path.splitext(os.path.basename(os.path.normpath(my_input_list)))[0] + "_out.xlsx"
+    if os.path.isdir(my_input_list):
+        out_path_name = os.path.normpath(my_input_list)
+    else:
+        out_path_name = os.path.dirname(os.path.normpath(my_input_list))
+
+    full_out_path = os.path.join(out_path_name, out_file_name)
+    return full_out_path
 
 
 if __name__ == '__main__':
@@ -204,7 +215,8 @@ if __name__ == '__main__':
     mode = ""
     if sys.argv[2] == "cytotox":
         mode = "cytotox"
-        run_cytotox(the_df)
+        the_final_df = run_cytotox(the_df)
+        the_final_df.to_excel(get_output_name(input_list))
     else:
         mode = "parser"
         run_parser(the_df, my_coord=sys.argv[2])
