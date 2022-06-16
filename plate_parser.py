@@ -31,12 +31,14 @@ class WellPlate96:
         # If input is coming from folder time is not in file, so parse from filename and inject
         if this_is_folder:
             time_from_filename = os.path.splitext(os.path.basename(raw_in))[0].replace("_", ".")
-            self.labels = self.labels.append(pd.Series([time_from_filename]), ignore_index=True)
+            # self.labels = self.labels.append(pd.Series([time_from_filename]), ignore_index=True)
+            self.labels = pd.concat([self.labels, pd.Series([time_from_filename])], ignore_index=True)
         else:
             # get the time intervals
             just_times = some_df.iloc[:, 0]
             just_times.dropna(axis=0, how="any", inplace=True)
-            self.labels = self.labels.append(pd.Series(just_times))
+            # self.labels = self.labels.append(pd.Series(just_times))
+            self.labels = pd.concat([self.labels, pd.Series(just_times)])
 
         # drop first two columns and we now only have pure data, ie. relative fluorescence units RFU
         some_df = some_df.iloc[:, 2:]
@@ -46,7 +48,8 @@ class WellPlate96:
             # only take top 8 rows, 9th row is blank
             chunk = some_df.iloc[i:i+8, :]
             my_series = pd.Series(chunk.to_numpy(copy=True).flatten(), index=self.this_df.columns)
-            self.this_df = self.this_df.append(my_series, ignore_index=True)
+            # self.this_df = self.this_df.append(my_series, ignore_index=True)
+            self.this_df = pd.concat([self.this_df, my_series.to_frame(1).T], ignore_index=True)
 
     def get_columns(self, my_coord_list):
         print(self.this_df[my_coord_list].to_csv(float_format='%.3f'))
@@ -158,14 +161,16 @@ def run_cytotox(my_df):
         drug1_df.index = list('BCD')
         drug1_df['plate_rows'] = "BCD"
         drug1_df['filename'] = index
-        my_final_df = my_final_df.append(drug1_df)
+        # my_final_df = my_final_df.append(drug1_df)
+        my_final_df = pd.concat([my_final_df, drug1_df])
 
         drug2_array = row[d2e_co.fixed_list].to_frame().transpose().values.reshape(3, 10)
         drug2_df = pd.DataFrame(drug2_array, columns=range(2, 12))
         drug2_df.index = list('EFG')
         drug2_df['plate_rows'] = "EFG"
         drug2_df['filename'] = index
-        my_final_df = my_final_df.append(drug2_df)
+        # my_final_df = my_final_df.append(drug2_df)
+        my_final_df = pd.concat([my_final_df, drug2_df])
 
     print(my_final_df)
     return my_final_df
