@@ -6,3 +6,5 @@ pyvenv.cfg
 .idea/
 gitken
 *_out.xlsx
+.venv
+.vscode/
